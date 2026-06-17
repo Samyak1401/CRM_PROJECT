@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-
+from datetime import datetime
 
 
 class Register(BaseModel):
@@ -8,17 +8,15 @@ class Register(BaseModel):
     email: str
     password: str
     role: str
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class Login(BaseModel):
     email: str
     password: str
 
 class Category(BaseModel):
-    user_id: int
     name: str
     description: Optional[str] = None
-    is_active: int = 1
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
