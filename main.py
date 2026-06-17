@@ -70,5 +70,35 @@ def create_category(category:Category, user:dict = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))   
 
+@app.get("/fetch/categories")
+def get_categories(user:dict = Depends(get_current_user)):
+    if user.get("user_role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action"
+        )
+    try:
+        with get_db_connection() as cur:
+            cur.execute("SELECT * FROM categories")
+            result=cur.fetchall()
+            if result:
+                categories = []
+                for row in result:
+                    categories.append({
+                        "category_id": row[0],
+                        "user_id": row[1],
+                        "name": row[2],
+                        "description": row[3],
+                        "is_active": row[4],
+                        "created_at": row[5],
+                        "updated_at": row[6]
+                    })
+
+                return categories
+    except HTTPException as e:
+        raise e
+
+    
+            
 
 
