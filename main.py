@@ -98,7 +98,7 @@ def get_categories(user:dict = Depends(get_current_user)):
     except HTTPException as e:
         raise e
 
-@app.post("/ticket")
+@app.post("/generate/ticket")
 def create_ticket(ticket:Ticket, user:dict = Depends(get_current_user)):
     try:
         if get_current_user and user.get("user_role")== "customer":
@@ -115,8 +115,63 @@ def create_ticket(ticket:Ticket, user:dict = Depends(get_current_user)):
     except HTTPException as e:
         raise e
        
+@app.get("/view/ticket")
+def view_ticket(user:dict = Depends(get_current_user)):
+    if user.get("user_role") != "admin":
+       raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+    try:
+        with get_db_connection() as cur:
+            cur.execute("SELECT * FROM tickets")
+            result=cur.fetchall()
+            if result:
+                tickets=[]
+                for res in result:
+                    tickets.append({
+                        "ticket_id":res[0],
+                        "title":res[1],
+                        "description":res[2],
+                        "customer_id":res[3],
+                        "assigned_to":res[4],
+                        "category_id":res[5],
+                        "priority":res[6],
+                        "status":res[7],
+                        "created_at":res[8],
+                        "updated_at":res[9],
+                        "resolved_at":res[10]
+                    })
+                return tickets
+    except HTTPException as e:
+        raise e
 
-    
-            
+@app.patch("/assign/ticket")
+def assign_ticket(assign:AssignTicket,user:dict = Depends(get_current_user)):
+    if user.get("user_role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+    try:
+        with get_db_connection() as cur:
+            cur.execute("UPDATE tickets SET assigned_to = %s WHERE id = %s RETURNING id",(assign.assigned_to, assign.ticket_id))
+            result=cur.fetchone()
+            if result:
+                return {"message": "Ticket assigned successfully to","agent_id":result}
+    except HTTPException as e:
+        raise e
 
+@app.patch("/update/status")
+def update_status(us:UpdateStatus,user:dict = Depends(get_current_user)):
+    if user.get("user_role") == "customer":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You do not have permission to perform this action")
+    try:
+        with get_db_connection() as cur:
+            if us.status=="resolved":
+                cur.execute("UPDATE tickets SET status = %s, resolved_at = %s, updated_at=%s WHERE id = %s and assigned_to =%s RETURNING id",(us.status,datetime.now(),datetime.now(),us.ticket_id,user["user_id"]))
+
+            cur.execute("UPDATE tickets SET status = %s, updated_at=%s WHERE id = %s and assigned_to =%s  RETURNING id",(us.status,datetime.now(),us.ticket_id,user["user_id"]))
+            result=cur.fetchone()
+            if result:
+                return {"message": "Status updated successfully","status":us.status}
+    except HTTPException as e:
+        raise e
+
+
+                  
 

@@ -86,7 +86,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS ticket_comments (
                     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                     ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-                    author_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
                     body TEXT NOT NULL,
                     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 );
