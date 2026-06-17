@@ -38,3 +38,14 @@ def init_db():
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
             ''')
+         # categories
+        cursor.execute('''
+                CREATE TABLE IF NOT EXISTS categories (
+                    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+                    name VARCHAR(100) NOT NULL UNIQUE,
+                    description TEXT,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE
+                );
+            ''')
+      
