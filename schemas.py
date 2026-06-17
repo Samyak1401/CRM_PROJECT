@@ -20,3 +20,13 @@ class Category(BaseModel):
     description: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+class Ticket(BaseModel):
+    title: str
+    description: str
+    category_id: int
+    priority: str = "medium"
+    status: str = "open"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None

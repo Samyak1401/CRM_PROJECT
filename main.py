@@ -1,7 +1,7 @@
 import time
 from fastapi import FastAPI, HTTPException,Depends,status
 from datetime import datetime
-from schemas import Register,Login,Category
+from schemas import *
 from database import get_db_connection
 from database import init_db
 from auth import create_token, get_current_user, hash_password, verify_password
@@ -97,6 +97,24 @@ def get_categories(user:dict = Depends(get_current_user)):
                 return categories
     except HTTPException as e:
         raise e
+
+@app.post("/ticket")
+def create_ticket(ticket:Ticket, user:dict = Depends(get_current_user)):
+    try:
+        if get_current_user and user.get("user_role")== "customer":
+                with get_db_connection() as cur:
+                    cur.execute(""
+                                "Insert into tickets (title,description,customer_id,category_id,priority)" \
+                                " VALUES (%s,%s,%s,%s,%s) RETURNING id"""
+                                ,(ticket.title,ticket.description,user["user_id"],ticket.category_id,ticket.priority))
+                    result = cur.fetchone()
+                    if result:
+                        return {"message": "Ticket created successfully"}
+        else:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+    except HTTPException as e:
+        raise e
+       
 
     
             
