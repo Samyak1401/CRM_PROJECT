@@ -14,3 +14,11 @@ class Register(BaseModel):
 class Login(BaseModel):
     email: str
     password: str
+
+class Category(BaseModel):
+    user_id: int
+    name: str
+    description: Optional[str] = None
+    is_active: int = 1
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None

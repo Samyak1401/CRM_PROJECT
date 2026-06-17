@@ -1,10 +1,10 @@
 import time
 from fastapi import FastAPI, HTTPException,Depends
 from datetime import datetime
-from schemas import Register,Login
+from schemas import Register,Login,Category
 from database import get_db_connection
 from database import init_db
-from auth import create_token, hash_password, verify_password
+from auth import create_token, get_current_user, hash_password, verify_password
 
 app = FastAPI()
 
@@ -35,6 +35,34 @@ def login_user(user: Login):
             user_id = result[0]
             token = create_token(user_id)
             return {"message": "Login successful", "token": token}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/categories")
+def create_category(category:Category, user: int = Depends(get_current_user)):
+    try:
+        with get_db_connection() as cur:
+            # Check if name is provided
+            if 'name' not in category:
+                raise HTTPException(status_code=400, detail="Category name is required")
+                
+            cur.execute(
+                """
+                INSERT INTO categories (user_id, name, description, is_active) 
+                VALUES (%s, %s, %s, %s) 
+                RETURNING id
+                """, 
+                (
+                    user['id'], 
+                    category['name'], 
+                    category.get('description', ''), 
+                    category.get('is_active', True)
+                )
+            )
+            category_id = cur.fetchone()[0]
+            return {"message": "Category created successfully", "id": category_id}
+            
     except HTTPException:
         raise
     except Exception as e:
