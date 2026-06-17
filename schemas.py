@@ -30,3 +30,11 @@ class Ticket(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
+
+class AssignTicket(BaseModel):
+    assigned_to: int
+    ticket_id: int
+
+class UpdateStatus(BaseModel):
+    status:str
+    ticket_id:int
