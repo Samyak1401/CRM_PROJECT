@@ -20,9 +20,11 @@ def hash_password(password:str) -> str:
 def verify_password(user_password:str,db_hashed_password:str) -> bool:
     return pwd_context.verify(user_password,db_hashed_password)
 
-def create_token(user_id:int) -> str:
+def create_token(user_id:int,role:str) ->str:
               # colname: value  
-    payload = {"user_id": user_id,"exp":time.time()+3600}
+    payload = {"user_id": user_id,
+               "user_role":role,
+               "exp":time.time()+3600}
     token= jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return  token
 
@@ -33,8 +35,6 @@ def decode_jwt(token:str)->Dict[str, str]:
     except:
         return None
         
-
-
 security = HTTPBearer()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)):
@@ -42,4 +42,4 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Security(securi
     payload = decode_jwt(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid token")
-    return payload["user_id"]
+    return payload
