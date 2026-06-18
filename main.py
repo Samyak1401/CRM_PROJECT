@@ -12,6 +12,9 @@ app = FastAPI()
 def on_startup():
     init_db()
 
+@app.get("/")
+def root():
+    return {"message": "API is running"}
 
 @app.post("/register")
 def register_user(user:Register):
