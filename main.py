@@ -157,21 +157,176 @@ def assign_ticket(assign:AssignTicket,user:dict = Depends(get_current_user)):
         raise e
 
 @app.patch("/update/status")
-def update_status(us:UpdateStatus,user:dict = Depends(get_current_user)):
+def update_status(us: UpdateStatus, user: dict = Depends(get_current_user)):
     if user.get("user_role") == "customer":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You do not have permission to perform this action")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
     try:
         with get_db_connection() as cur:
-            if us.status=="resolved":
-                cur.execute("UPDATE tickets SET status = %s, resolved_at = %s, updated_at=%s WHERE id = %s and assigned_to =%s RETURNING id",(us.status,datetime.now(),datetime.now(),us.ticket_id,user["user_id"]))
+            cur.execute(
+                "SELECT status FROM tickets WHERE id = %s AND assigned_to = %s",
+                (us.ticket_id, user["user_id"])
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Ticket not found or not assigned to you")
+            old_status = row[0]
 
-            cur.execute("UPDATE tickets SET status = %s, updated_at=%s WHERE id = %s and assigned_to =%s  RETURNING id",(us.status,datetime.now(),us.ticket_id,user["user_id"]))
-            result=cur.fetchone()
-            if result:
-                return {"message": "Status updated successfully","status":us.status}
+            if old_status == us.status:
+                raise HTTPException(status_code=400, detail="Ticket already has this status")
+
+            now = datetime.now()
+            if us.status == "resolved":
+                cur.execute(
+                    "UPDATE tickets SET status = %s, resolved_at = %s, updated_at = %s WHERE id = %s AND assigned_to = %s RETURNING id",
+                    (us.status, now, now, us.ticket_id, user["user_id"])
+                )
+            else:
+                cur.execute(
+                    "UPDATE tickets SET status = %s, updated_at = %s WHERE id = %s AND assigned_to = %s RETURNING id",
+                    (us.status, now, us.ticket_id, user["user_id"])
+                )
+            updated = cur.fetchone()
+            if updated is None:
+                raise HTTPException(status_code=404, detail="Ticket update failed")
+
+            cur.execute(
+                "INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by_id, changed_at, note) "
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (us.ticket_id, old_status, us.status, user["user_id"], now, us.note)
+            )
+            history_row = cur.fetchone()
+            if history_row is None:
+                raise HTTPException(status_code=500, detail="Failed to log status history")
+
+            return {"message": "Status updated successfully", "status": us.status}
     except HTTPException as e:
         raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-                  
+@app.post("/comments")
+def create_comment(comment: CommentCreate, user: dict = Depends(get_current_user)):
+    try:
+        with get_db_connection() as cur:
+            cur.execute(
+                "SELECT customer_id, assigned_to FROM tickets WHERE id = %s",
+                (comment.ticket_id,)
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Ticket not found")
+            user_id, assigned_to = row
 
+            if user["user_role"] == "customer":
+                raise HTTPException(status_code=403, detail="You do not have permission to perform this action")
+
+            cur.execute(
+                "INSERT INTO ticket_comments (ticket_id, user_id, body, created_at) "
+                "VALUES (%s, %s, %s, %s) RETURNING id, ticket_id, user_id, body, created_at",
+                (comment.ticket_id, user["user_id"], comment.body, datetime.now())
+            )
+            result = cur.fetchone()
+            if result is None:
+                raise HTTPException(status_code=500, detail="Failed to create comment")
+
+            return {
+                "message": "Comment added successfully",
+                "comment": {
+                    "id": result[0],
+                    "ticket_id": result[1],
+                    "user_id": result[2],
+                    "body": result[3],
+                    "created_at": result[4]
+                }
+            }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/comments/{ticket_id}")
+def get_comments(ticket_id: int, user: dict = Depends(get_current_user)):
+    try:
+        with get_db_connection() as cur:
+            cur.execute("SELECT customer_id FROM tickets WHERE id = %s", (ticket_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Ticket not found")
+
+            if user["user_role"] == "customer":
+                raise HTTPException(status_code=403, detail="You do not have permission to perform this action")
+
+            cur.execute(
+                "SELECT id, ticket_id, user_id, body, created_at FROM ticket_comments "
+                "WHERE ticket_id = %s ORDER BY created_at ASC",
+                (ticket_id,)
+            )
+            rows = cur.fetchall()
+
+            comments = [
+                {"id": r[0], "ticket_id": r[1], "agent_id": r[2], "body": r[3], "created_at": r[4]}
+                for r in rows
+            ]
+            return comments
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/user/profile")
+def get_user_profile(user: dict = Depends(get_current_user)):
+    try:
+        with get_db_connection() as cur:
+            cur.execute("SELECT name, email FROM users WHERE id = %s", (user["user_id"],))
+            profile = cur.fetchone()
+            if profile is None:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            if user.get("user_role") == "customer":
+                cur.execute(
+                    "SELECT id, title, description, status, priority FROM tickets WHERE customer_id = %s",
+                    (user["user_id"],)
+                )
+            elif user.get("user_role") == "agent" :
+                cur.execute(
+                    "SELECT id, title, description, status, priority FROM tickets WHERE assigned_to = %s",
+                    (user["user_id"],)
+                )
+            else:
+                raise HTTPException(status_code=403, detail="Unknown role")
+
+            tickets = cur.fetchall()
+
+            ticket_list = []
+            for t in tickets:
+                ticket_id = t[0]
+                cur.execute(
+                    "SELECT id, user_id, body, created_at FROM ticket_comments "
+                    "WHERE ticket_id = %s ORDER BY created_at ASC",
+                    (ticket_id,)
+                )
+                comment_rows = cur.fetchall()
+                comments = [
+                    {"id": c[0], "author_id": c[1], "body": c[2], "created_at": c[3]}
+                    for c in comment_rows
+                ]
+                ticket_list.append({
+                    "id": ticket_id,
+                    "title": t[1],
+                    "description": t[2],
+                    "status": t[3],
+                    "priority": t[4],
+                    "comments": comments
+                })
+
+            return {
+                "name": profile[0],
+                "email": profile[1],
+                "tickets": ticket_list
+            }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
