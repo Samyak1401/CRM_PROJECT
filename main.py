@@ -16,6 +16,7 @@ def on_startup():
 def root():
     return {"message": "API is running"}
 
+
 @app.post("/register")
 def register_user(user:Register):
     hashed_password=hash_password(user.password)
@@ -339,3 +340,4 @@ def get_user_profile(user: dict = Depends(get_current_user)):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

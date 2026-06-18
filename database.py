@@ -23,7 +23,8 @@ def get_db_connection():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        pool.putconn(conn)
+
 
 def init_db():
     with get_db_connection() as cursor:
