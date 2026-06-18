@@ -284,12 +284,18 @@ def get_user_profile(user: dict = Depends(get_current_user)):
             if profile is None:
                 raise HTTPException(status_code=404, detail="User not found")
 
+            if user.get("user_role") == "admin":
+                return {
+                    "name": profile[0],
+                    "email": profile[1]
+                }
+
             if user.get("user_role") == "customer":
                 cur.execute(
                     "SELECT id, title, description, status, priority FROM tickets WHERE customer_id = %s",
                     (user["user_id"],)
                 )
-            elif user.get("user_role") == "agent" :
+            elif user.get("user_role") == "agent":
                 cur.execute(
                     "SELECT id, title, description, status, priority FROM tickets WHERE assigned_to = %s",
                     (user["user_id"],)
