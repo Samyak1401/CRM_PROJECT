@@ -38,3 +38,10 @@ class AssignTicket(BaseModel):
 class UpdateStatus(BaseModel):
     status:str
     ticket_id:int
+    note:Optional[str]=None
+
+
+class CommentCreate(BaseModel):
+    ticket_id: int
+    body: str
+
