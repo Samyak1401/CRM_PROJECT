@@ -5,3 +5,5 @@ python-dotenv
 uvicorn
 jwt
 passlib
+python-jose
+bcrypt==4.0.1
