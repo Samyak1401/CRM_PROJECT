@@ -76,14 +76,9 @@ def create_category(category:Category, user:dict = Depends(get_current_user)):
 
 @app.get("/fetch/categories")
 def get_categories(user:dict = Depends(get_current_user)):
-    if user.get("user_role") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to perform this action"
-        )
     try:
         with get_db_connection() as cur:
-            cur.execute("SELECT * FROM categories")
+            cur.execute("SELECT * FROM categories where is_active = True")
             result=cur.fetchall()
             if result:
                 categories = []
@@ -340,4 +335,34 @@ def get_user_profile(user: dict = Depends(get_current_user)):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/update/category")
+def update_category(category: Category, user: dict = Depends(get_current_user)):
+    if user.get("user_role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+    try:
+        with get_db_connection() as cur:
+            cur.execute(
+                "UPDATE categories SET name = %s, description = %s WHERE id = %s RETURNING id",
+                (category.name, category.description, category.id)
+            )
+            result = cur.fetchone()
+            if result:
+                return {"message": "Category updated successfully"}
+    except HTTPException as e:
+        raise e
+
+@app.delete("/delete/category/{category_id}")
+def delete_category( category_id:int,user: dict = Depends(get_current_user)):
+    if user.get("user_role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+    try:
+        with get_db_connection() as cur:
+            cur.execute("Update categories set is_active = False where id = %s RETURNING id",(category_id,))
+            result=cur.fetchone()
+            if result:
+                return {"message": "Category deleted successfully"}
+    except HTTPException as e:
+        raise e
+    
 
