@@ -335,34 +335,113 @@ def get_user_profile(user: dict = Depends(get_current_user)):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.patch("/update/category")
+@app.patch("/update/category", status_code=status.HTTP_200_OK)
 def update_category(category: Category, user: dict = Depends(get_current_user)):
     if user.get("user_role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action"
+        )
+
     try:
         with get_db_connection() as cur:
             cur.execute(
-                "UPDATE categories SET name = %s, description = %s WHERE id = %s RETURNING id",
+                """
+                UPDATE categories
+                SET name = %s, description = %s, updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+                """,
                 (category.name, category.description, category.id)
             )
             result = cur.fetchone()
-            if result:
-                return {"message": "Category updated successfully"}
-    except HTTPException as e:
-        raise e
 
-@app.delete("/delete/category/{category_id}")
-def delete_category( category_id:int,user: dict = Depends(get_current_user)):
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Category with id {category.id} not found"
+                )
+
+            return {"message": "Category updated successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the category"
+        )
+
+
+@app.delete("/delete/category/{category_id}", status_code=status.HTTP_200_OK)
+def delete_category(category_id: int, user: dict = Depends(get_current_user)):
     if user.get("user_role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to perform this action")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action"
+        )
+
     try:
         with get_db_connection() as cur:
-            cur.execute("Update categories set is_active = False where id = %s RETURNING id",(category_id,))
-            result=cur.fetchone()
-            if result:
-                return {"message": "Category deleted successfully"}
-    except HTTPException as e:
-        raise e
-    
+            cur.execute(
+                """
+                UPDATE categories
+                SET is_active = FALSE, updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+                """,
+                (category_id,)
+            )
+            result = cur.fetchone()
 
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Category with id {category_id} not found"
+                )
+
+            return {"message": "Category deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the category"
+        )
+@app.patch("/reactivate/category/{category_id}", status_code=status.HTTP_200_OK)
+def reactivate_category(category_id: int, user: dict = Depends(get_current_user)):
+    if user.get("user_role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action"
+        )
+
+    try:
+        with get_db_connection() as cur:
+            cur.execute(
+                """
+                UPDATE categories
+                SET is_active = TRUE, updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+                """,
+                (category_id,)
+            )
+            result = cur.fetchone()
+
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Category with id {category_id} not found"
+                )
+
+            return {"message": "Category reactivated successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while reactivating the category"
+        )
