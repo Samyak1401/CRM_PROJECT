@@ -16,7 +16,7 @@ app.add_middleware(
         "http://127.0.0.1:5500",   
         "http://localhost:5500",   
         "http://localhost:3000",   
-        "crmproject-tebky2zssvpxrs2smedmsc.streamlit.app",  #
+        "crmproject-k9o4ppip2rrrcjksde3v8d.streamlit.app",  #
     ],
     allow_credentials=True,
     allow_methods=["*"],
